@@ -2,7 +2,7 @@
 node_modules/
 
 # Environment variables (sensitive data) commented out for first push to define placeholders
-# .env
+.env
 
 # Logs
 logs/
@@ -18,7 +18,7 @@ Thumbs.db
 dist/
 build/
 
-# Dependency lock files (optional, keep if needed)
+# Dependency lock files
 yarn.lock
 
 # Temporary files
