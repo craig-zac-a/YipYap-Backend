@@ -2,7 +2,7 @@
 node_modules/
 
 # Environment variables (sensitive data) commented out for first push to define placeholders
-.env
+# .env
 
 # Logs
 logs/
