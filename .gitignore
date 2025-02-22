@@ -1,0 +1,26 @@
+# Node.js dependencies
+node_modules/
+
+# Environment variables (sensitive data) commented out for first push to define placeholders
+# .env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Compiled & build files
+dist/
+build/
+
+# Dependency lock files (optional, keep if needed)
+yarn.lock
+
+# Temporary files
+tmp/
+temp/
