@@ -44,7 +44,7 @@ app.get("/posts/fetch", (req, res) =>
 });
 
 // Add New Post API
-app.post("/posts", (req, res) =>
+app.post("/posts/add", (req, res) =>
 {
     const {message, accountid, latitude, longitude} = req.body;
   
