@@ -7,12 +7,12 @@ const bcrypt = require("bcryptjs");
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(require("cors")());
 const PORT = process.env.PORT;
 
 // Database Connection Parameters
-const db = mysql.createConnection(
+const db = mysql.createPool(
 {
+    connectionLimit: 10,
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
@@ -20,20 +20,27 @@ const db = mysql.createConnection(
     port: process.env.DB_PORT
 });
 
-// Connect to the database
-db.connect((err) => {
+// Test Database Connection
+db.query("SELECT 1", (err, results) =>
+{
     if (err)
     {
-        console.error("Database connection failed: " + err.message);
+        console.error("Database connection failed: " + err.stack);
+        return;
     }
-    else
-    {
-        console.log("Connected to database.");
-    }
+    console.log("Database connected");
 });
 
+// Checks for database errors
+db.on("error", (err) =>
+{
+    console.error("Database error:", err);
+});
+
+module.exports = db;
+
 // Fetch Posts API
-app.get("/posts/proximity", (req, res) => {
+app.get("/posts/fetch", (req, res) => {
     const {latitude, longitude, radius} = req.query;
 
     // Make sure all required fields are provided
@@ -82,7 +89,7 @@ app.post("/posts", (req, res) => {
 });
 
 // Create Account API
-app.post("/account/create", async (req, res) => {
+app.post("/account/register", async (req, res) => {
     const {email, password} = req.body;
 
     // Make sure email and password are provided
@@ -169,4 +176,4 @@ app.post("/account/login", (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
