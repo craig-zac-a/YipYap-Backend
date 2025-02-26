@@ -1,24 +1,13 @@
 require("dotenv").config();
 const express = require("express");
-const mysql = require("mysql2");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
+const db = require("./db");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 const PORT = process.env.PORT;
-
-// Database Connection Parameters
-const db = mysql.createPool(
-{
-    connectionLimit: 10,
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT
-});
 
 // Test Database Connection
 db.query("SELECT 1", (err, results) =>
@@ -30,14 +19,6 @@ db.query("SELECT 1", (err, results) =>
     }
     console.log("Database connected");
 });
-
-// Checks for database errors
-db.on("error", (err) =>
-{
-    console.error("Database error:", err);
-});
-
-module.exports = db;
 
 // Fetch Posts API
 app.get("/posts/fetch", (req, res) => {
