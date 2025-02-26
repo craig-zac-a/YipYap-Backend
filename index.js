@@ -21,14 +21,12 @@ db.query("SELECT 1", (err, results) =>
 });
 
 // Fetch Posts API
-app.get("/posts/fetch", (req, res) => {
+app.get("/posts/fetch", (req, res) =>
+{
     const {latitude, longitude, radius} = req.query;
 
     // Make sure all required fields are provided
-    if(!latitude || !longitude || !radius)
-    {
-        return res.status(400).json({ error: "Missing parameters" });
-    }
+    if(!latitude || !longitude || !radius) return res.status(400).json({ error: "Missing parameters" });
 
     // Fetch Posts Query
     const sqlQuery = `
@@ -37,47 +35,41 @@ app.get("/posts/fetch", (req, res) => {
     `;
 
     // Execute the query
-    db.query(sqlQuery, [longitude, latitude, radius], (err, results) => {
-        if(err)
-        {
-            return res.status(500).json({ error: err.message });
-        }
+    db.query(sqlQuery, [longitude, latitude, radius], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
         res.json(results);
     });
 });
 
 // Add New Post API
-app.post("/posts", (req, res) => {
+app.post("/posts", (req, res) =>
+{
     const {message, accountid, latitude, longitude} = req.body;
   
     // Make sure all required fields are provided
-    if(!latitude || !longitude || !message || !accountid)
-    {
-        return res.status(400).json({ error: "Missing required fields" });
-    }
+    if(!latitude || !longitude || !message || !accountid) return res.status(400).json({ error: "Missing required fields" });
 
     // Insert Post Query
     const sqlQuery = "INSERT INTO Post (latitude, longitude, message, accountid) VALUES (?, ?, ?, ?)";
 
     // Execute the query
-    db.query(sqlQuery, [latitude, longitude, message, accountid], (err, results) => {
-        if(err)
-        {
-            return res.status(500).json({ error: err.message });
-        }
+    db.query(sqlQuery, [latitude, longitude, message, accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
         res.status(201).json({ message: "Post created", postid: results.insertId });
     });
 });
 
 // Create Account API
-app.post("/account/register", async (req, res) => {
+app.post("/account/register", async (req, res) =>
+{
     const {email, password} = req.body;
 
     // Make sure email and password are provided
-    if(!email || !password)
-    {
-        return res.status(400).json({ error: "Email and password are required" });
-    }
+    if(!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
     try
     {
@@ -90,7 +82,14 @@ app.post("/account/register", async (req, res) => {
         // Execute the query
         db.query(sqlQuery, [email, hashedPassword], (err, results) => {
             if(err)
-            {
+            {   
+                // Catches if the error thrown is a duplicate entry error
+                if(err.code === "ER_DUP_ENTRY")
+                {
+                    return res.status(409).json({ error: "Email is already in use" });
+                }
+
+                // Other generic error
                 return res.status(500).json({ error: err.message });
             }
 
@@ -108,14 +107,12 @@ app.post("/account/register", async (req, res) => {
 });
 
 // Login API
-app.post("/account/login", (req, res) => {
+app.post("/account/login", (req, res) =>
+{
     const {email, password} = req.body;
 
     // Make sure email and password are provided
-    if(!email || !password)
-    {
-        return res.status(400).json({ error: "Missing email or password" });
-    }
+    if(!email || !password) return res.status(400).json({ error: "Missing email or password" });
 
     try
     {
@@ -126,11 +123,8 @@ app.post("/account/login", (req, res) => {
             if(err) return res.status(500).json({ error: err.message });
 
             // If no results are returned, the email is not in the database
-            if(results.length === 0)
-            {
-                // Do not give away if the email is in the database as this can be used to find valid emails
-                return res.status(401).json({ error: "Invalid email or password" });
-            }
+            // Do not give away if the email is in the database as this can be used to find valid emails
+            if(results.length === 0) return res.status(401).json({ error: "Invalid email or password" });
 
             // Gets the first result from the query, which should have only returned one result if there is an account with that email
             const user = results[0];
@@ -138,16 +132,10 @@ app.post("/account/login", (req, res) => {
             // Compares the password with the stored hash
             const isMatch = await bcrypt.compare(password, user.password_hash);
 
-            if(isMatch)
-            {
-                // If the password matches, we return a success message
-                return res.json({ message: "Login successful", user: { email: user.email } });
-            }
-            else
-            {
-                // If the password does not match we return an error
-                return res.status(401).json({ error: "Invalid email or password" });
-            }
+            // If the password matches, we return a success message
+            if(isMatch) return res.json({ message: "Login successful", user: { email: user.email } });
+            // If the password does not match we return an error
+            else return res.status(401).json({ error: "Invalid email or password" });
         });
     }
     catch(err)
