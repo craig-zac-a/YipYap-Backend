@@ -23,7 +23,7 @@ const db = mysql.createPool(
 // Test Database Connection
 db.query("SELECT 1", (err, results) =>
 {
-    if (err)
+    if(err)
     {
         console.error("Database connection failed: " + err.stack);
         return;
@@ -44,7 +44,7 @@ app.get("/posts/fetch", (req, res) => {
     const {latitude, longitude, radius} = req.query;
 
     // Make sure all required fields are provided
-    if (!latitude || !longitude || !radius)
+    if(!latitude || !longitude || !radius)
     {
         return res.status(400).json({ error: "Missing parameters" });
     }
@@ -57,7 +57,7 @@ app.get("/posts/fetch", (req, res) => {
 
     // Execute the query
     db.query(sqlQuery, [longitude, latitude, radius], (err, results) => {
-        if (err)
+        if(err)
         {
             return res.status(500).json({ error: err.message });
         }
@@ -80,7 +80,7 @@ app.post("/posts", (req, res) => {
 
     // Execute the query
     db.query(sqlQuery, [latitude, longitude, message, accountid], (err, results) => {
-        if (err)
+        if(err)
         {
             return res.status(500).json({ error: err.message });
         }
@@ -108,7 +108,7 @@ app.post("/account/register", async (req, res) => {
 
         // Execute the query
         db.query(sqlQuery, [email, hashedPassword], (err, results) => {
-            if (err)
+            if(err)
             {
                 return res.status(500).json({ error: err.message });
             }
@@ -120,7 +120,7 @@ app.post("/account/register", async (req, res) => {
             });
         });
     }
-    catch (err)
+    catch(err)
     {
         return res.status(500).json({ error: "Error hashing password" });
     }
@@ -131,37 +131,33 @@ app.post("/account/login", (req, res) => {
     const {email, password} = req.body;
 
     // Make sure email and password are provided
-    if (!email || !password)
+    if(!email || !password)
     {
         return res.status(400).json({ error: "Missing email or password" });
     }
 
-    // Login Query
-    const sqlQuery = "SELECT * FROM Account WHERE email = ?";
-    db.query(sqlQuery, [email], (err, results) => {
-        if (err)
+    try
+    {
+        // Login Query
+        const sqlQuery = "SELECT * FROM Account WHERE email = ?";
+        db.query(sqlQuery, [email], async (err, results) =>
         {
-            return res.status(500).json({ error: err.message });
-        }
+            if(err) return res.status(500).json({ error: err.message });
 
-        // If no results are returned, the email is not in the database
-        if (results.length === 0)
-        {
-            // Do not give away if the email is in the database as this can be used to find valid emails
-            return res.status(401).json({ error: "Invalid email or password" });
-        }
-
-        // Gets the first result from the query, which should have only returned one result if there is an account with that email
-        const user = results[0];
-
-        // Compares the password with the stored hash
-        bcrypt.compare(password, user.password_hash, (err, isMatch) => {
-            if (err)
+            // If no results are returned, the email is not in the database
+            if(results.length === 0)
             {
-                return res.status(500).json({ error: err.message });
+                // Do not give away if the email is in the database as this can be used to find valid emails
+                return res.status(401).json({ error: "Invalid email or password" });
             }
 
-            if (isMatch)
+            // Gets the first result from the query, which should have only returned one result if there is an account with that email
+            const user = results[0];
+
+            // Compares the password with the stored hash
+            const isMatch = await bcrypt.compare(password, user.password_hash);
+
+            if(isMatch)
             {
                 // If the password matches, we return a success message
                 return res.json({ message: "Login successful", user: { email: user.email } });
@@ -172,7 +168,11 @@ app.post("/account/login", (req, res) => {
                 return res.status(401).json({ error: "Invalid email or password" });
             }
         });
-    });
+    }
+    catch(err)
+    {
+        return res.status(500).json({ error: "Error logging in" });
+    }
 });
 
 // Start Server
