@@ -22,6 +22,25 @@ db.query("SELECT 1", (err, results) =>
     console.log("Database connected");
 });
 
+
+/* LOGS */
+
+// Logs all requests to the console
+app.use((req, res, next) => {
+    req.requestStartTime = Date.now();
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    
+    // Logs the date and time, request method, URL, and completion time
+    res.on("finish", () => {
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - Completed in ${Date.now() - req.requestStartTime}ms`);
+    });
+
+    next();
+});
+
+
+/* AUTHENTICATION */
+
 // Verify Authentication Token
 const verifyToken = (req, res, next) =>
 {
@@ -44,18 +63,6 @@ app.get("/account/verifyToken", verifyToken, (req, res) =>
     res.json({ message: "Token is valid", accountid: req.accountid, email: req.email });
 });
 
-// Logs all requests to the console
-app.use((req, res, next) => {
-    req.requestStartTime = Date.now();
-    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - Started`);
-    
-    res.on("finish", () => {
-        console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - Completed in ${Date.now() - req.requestStartTime}ms`);
-    });
-
-    next();
-});
 
 /* POST ENDPOINTS */
 
