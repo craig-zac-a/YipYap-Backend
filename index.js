@@ -57,6 +57,8 @@ app.use((req, res, next) => {
     next();
 });
 
+/* POST ENDPOINTS */
+
 // Fetch Posts API
 app.get("/posts/fetch", verifyToken, (req, res) =>
 {
@@ -102,28 +104,50 @@ app.get("/posts/fetch/:postid", verifyToken, (req, res) =>
     });
 });
 
-// Add Comment API
-app.post("/posts/addComment", verifyToken, (req, res) =>
+// Add Post API
+app.post("/posts/add", verifyToken, (req, res) =>
 {
-    const {postid, message} = req.body;
-
+    const {message, accountid, latitude, longitude} = req.body;
+    
     // Make sure all required fields are provided
-    if(!postid || !message) return res.status(400).json({ error: "Missing required fields" });
+    if(!latitude || !longitude || !message || !accountid) return res.status(400).json({ error: "Missing required fields" });
 
-    // Insert Comment Query
-    const sqlQuery = "INSERT INTO Comment (postid, accountid, message) VALUES (?, ?, ?)";
+    // Insert Post Query
+    const sqlQuery = "INSERT INTO Post (latitude, longitude, message, accountid) VALUES (?, ?, ?, ?)";
 
     // Execute the query
-    db.query(sqlQuery, [postid, message, req.accountid], (err, results) =>
+    db.query(sqlQuery, [latitude, longitude, message, req.accountid], (err, results) =>
     {
         if(err) return res.status(500).json({ error: err.message });
 
-        res.status(201).json({ message: "Comment added", commentid: results.insertId });
+        res.status(201).json({ message: "Post created", postid: results.insertId });
     });
 });
 
+// Delete Post API
+app.delete("/posts/delete/:postid", verifyToken, (req, res) =>
+{
+    const {postid} = req.params;
+
+    if(!postid) return res.status(400).json({ error: "Missing postid" });
+
+    // Delete Post Query
+    const sqlQuery = "UPDATE Post SET is_deleted = 1 WHERE postid = ? AND accountid = ?";
+
+    // Execute the query
+    db.query(sqlQuery, [postid, req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(200).json({ message: "Post deleted" });
+    });
+});
+
+
+/* COMMENT ENDPOINTS */
+
 // Fetch Comments API
-app.get("/posts/fetch/:postid/comments", verifyToken, (req, res) =>
+app.get("/comments/fetch/:postid", verifyToken, (req, res) =>
 {
     const {postid} = req.params;
 
@@ -144,8 +168,28 @@ app.get("/posts/fetch/:postid/comments", verifyToken, (req, res) =>
     });
 });
 
+// Add Comment API
+app.post("/comments/add", verifyToken, (req, res) =>
+{
+    const {postid, message} = req.body;
+
+    // Make sure all required fields are provided
+    if(!postid || !message) return res.status(400).json({ error: "Missing required fields" });
+
+    // Insert Comment Query
+    const sqlQuery = "INSERT INTO Comment (postid, accountid, message) VALUES (?, ?, ?)";
+
+    // Execute the query
+    db.query(sqlQuery, [postid, message, req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(201).json({ message: "Comment added", commentid: results.insertId });
+    });
+});
+
 // Delete Comment API
-app.delete("/posts/delete-comment/:commentid", verifyToken, (req, res) =>
+app.delete("/comments/delete/:commentid", verifyToken, (req, res) =>
 {
     const {commentid} = req.params;
     
@@ -163,32 +207,16 @@ app.delete("/posts/delete-comment/:commentid", verifyToken, (req, res) =>
     });
 });
 
-// Delete Post API
-app.delete("/posts/delete-post/:postid", verifyToken, (req, res) =>
-{
-    const {postid} = req.params;
 
-    if(!postid) return res.status(400).json({ error: "Missing postid" });
-
-    // Delete Post Query
-    const sqlQuery = "UPDATE Post SET is_deleted = 1 WHERE postid = ? AND accountid = ?";
-
-    // Execute the query
-    db.query(sqlQuery, [postid, req.accountid], (err, results) =>
-    {
-        if(err) return res.status(500).json({ error: err.message });
-
-        res.status(200).json({ message: "Post deleted" });
-    });
-});
+/* REACTION ENDPOINTS */
 
 // Post Reaction API
-app.post("/posts/react-post/:postid", verifyToken, (req, res) =>
+app.post("/posts/react/:postid", verifyToken, (req, res) =>
 {
     const {postid} = req.params;
     const {reaction} = req.body;
 
-    if(!postid || !reaction) return res.status(400).json({ error: "Missing postid or reaction" });
+    if(postid === undefined || reaction === undefined) return res.status(400).json({ error: "Missing postid or reaction" });
 
     // Check if user has already reacted to the post
     const checkReactionQuery = "SELECT * FROM Reaction WHERE postid = ? AND accountid = ?";
@@ -199,7 +227,9 @@ app.post("/posts/react-post/:postid", verifyToken, (req, res) =>
         // If the user has already reacted to the post, update the reaction
         if(results.length > 0)
         {
-            const isDeleting = reaction === "0";
+            const isDeleting = reaction === 0;
+
+            console.log("Are we deleting?: ", isDeleting);
 
             const deleteReactionQuery = "DELETE FROM Reaction WHERE reaction != ? AND postid = ? AND accountid = ?";
             const updateReactionQuery = "UPDATE Reaction SET reaction = ? WHERE postid = ? AND accountid = ?";
@@ -224,8 +254,40 @@ app.post("/posts/react-post/:postid", verifyToken, (req, res) =>
     });
 });
 
+// Get Post Reactions API
+app.get("/posts/get-reactions/:postid", verifyToken, (req, res) =>
+{
+    const {postid} = req.params;
+
+    if(!postid) return res.status(400).json({ error: "Missing postid" });
+
+    // Get Post Reactions Query
+    const likeCount = "SELECT COUNT(*) AS count FROM Reaction WHERE postid = ? AND reaction = 1";
+    const dislikeCount = "SELECT COUNT(*) AS count FROM Reaction WHERE postid = ? AND reaction = -1";
+    const commentCount = "SELECT COUNT(*) AS count FROM Comment WHERE postid = ?";
+
+    // Execute the query
+    db.query(likeCount, [postid], (err, likeResults) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        db.query(dislikeCount, [postid], (err, dislikeResults) =>
+        {
+            if(err) return res.status(500).json({ error: err.message });
+
+            db.query(commentCount, [postid], (err, commentResults) =>
+            {
+                if(err) return res.status(500).json({ error: err.message });
+
+                res.status(200).json({ likes: likeResults[0].count, dislikes: dislikeResults[0].count, comments: commentResults[0].count });
+            });
+        });
+    });
+
+});
+
 // Comment Reaction API
-app.post("/posts/react-comment/:commentid", verifyToken, (req, res) =>
+app.post("/comments/react/:commentid", verifyToken, (req, res) =>
 {
     const {commentid} = req.params;
     const {reaction} = req.body;
@@ -267,68 +329,72 @@ app.post("/posts/react-comment/:commentid", verifyToken, (req, res) =>
     });
 });
 
-// Add New Post API
-app.post("/posts/add", verifyToken, (req, res) =>
+// Get Comment Reactions API
+app.get("/comments/get-reactions/:commentid", verifyToken, (req, res) =>
 {
-    const {message, accountid, latitude, longitude} = req.body;
-  
-    // Make sure all required fields are provided
-    if(!latitude || !longitude || !message || !accountid) return res.status(400).json({ error: "Missing required fields" });
 
-    // Insert Post Query
-    const sqlQuery = "INSERT INTO Post (latitude, longitude, message, accountid) VALUES (?, ?, ?, ?)";
+});
+
+// Get User Reactions API
+app.get("/account/posts/get-reactions", verifyToken, (req, res) =>
+{
+    // Get User Reactions Query
+    const sqlQuery = "SELECT * FROM Reaction WHERE accountid = ?";
 
     // Execute the query
-    db.query(sqlQuery, [latitude, longitude, message, req.accountid], (err, results) =>
+    db.query(sqlQuery, [req.accountid], (err, results) =>
     {
         if(err) return res.status(500).json({ error: err.message });
 
-        res.status(201).json({ message: "Post created", postid: results.insertId });
+        res.status(200).json(results);
     });
 });
 
+
+/* ACCOUNT ENDPOINTS */
+
 // Create Account API
 app.post("/account/register", async (req, res) =>
-{
-    const {email, password} = req.body;
-
-    // Make sure email and password are provided
-    if(!email || !password) return res.status(400).json({ error: "Email and password are required" });
-
-    try
     {
-        // Hash the password using 12 rounds of salt
-        const hashedPassword = await bcrypt.hash(password, 12);
-
-        // Insert Account Query
-        const sqlQuery = "INSERT INTO Account (email, password_hash) VALUES (?, ?)";
-
-        // Execute the query
-        db.query(sqlQuery, [email, hashedPassword], (err, results) => {
-            if(err)
-            {   
-                // Catches if the error thrown is a duplicate entry error
-                if(err.code === "ER_DUP_ENTRY")
-                {
-                    return res.status(409).json({ error: "Email is already in use" });
+        const {email, password} = req.body;
+    
+        // Make sure email and password are provided
+        if(!email || !password) return res.status(400).json({ error: "Email and password are required" });
+    
+        try
+        {
+            // Hash the password using 12 rounds of salt
+            const hashedPassword = await bcrypt.hash(password, 12);
+    
+            // Insert Account Query
+            const sqlQuery = "INSERT INTO Account (email, password_hash) VALUES (?, ?)";
+    
+            // Execute the query
+            db.query(sqlQuery, [email, hashedPassword], (err, results) => {
+                if(err)
+                {   
+                    // Catches if the error thrown is a duplicate entry error
+                    if(err.code === "ER_DUP_ENTRY")
+                    {
+                        return res.status(409).json({ error: "Email is already in use" });
+                    }
+    
+                    // Other generic error
+                    return res.status(500).json({ error: err.message });
                 }
-
-                // Other generic error
-                return res.status(500).json({ error: err.message });
-            }
-
-            res.status(201).json(
-            {
-                message: "Account created successfully",
-                accountid: results.insertId,
+    
+                res.status(201).json(
+                {
+                    message: "Account created successfully",
+                    accountid: results.insertId,
+                });
             });
-        });
-    }
-    catch(err)
-    {
-        return res.status(500).json({ error: "Error hashing password" });
-    }
-});
+        }
+        catch(err)
+        {
+            return res.status(500).json({ error: "Error hashing password" });
+        }
+    });
 
 // Login API
 app.post("/account/login", (req, res) =>
