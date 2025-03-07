@@ -445,7 +445,7 @@ app.get("/users/posts/get-reactions", verifyToken, (req, res) =>
 });
 
 // Token Verification for Auto Login
-app.get("/users/me", verifyToken, (req, res) =>
+app.get("/users/verify", verifyToken, (req, res) =>
 {
     res.json({ message: "Token is valid", accountid: req.accountid, email: req.email });
 });
