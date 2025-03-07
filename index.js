@@ -39,6 +39,8 @@ app.use((req, res, next) => {
 });
 
 
+
+
 /* AUTHENTICATION */
 
 // Verify Authentication Token
@@ -57,17 +59,13 @@ const verifyToken = (req, res, next) =>
     });
 }
 
-// Token Verification for Auto Login
-app.get("/account/verifyToken", verifyToken, (req, res) =>
-{
-    res.json({ message: "Token is valid", accountid: req.accountid, email: req.email });
-});
+
 
 
 /* POST ENDPOINTS */
 
 // Fetch Posts API
-app.get("/posts/fetch", verifyToken, (req, res) =>
+app.get("/posts", verifyToken, (req, res) =>
 {
     const {latitude, longitude, radius} = req.query;
 
@@ -91,7 +89,7 @@ app.get("/posts/fetch", verifyToken, (req, res) =>
 });
 
 // Fetch Single Post API
-app.get("/posts/fetch/:postid", verifyToken, (req, res) =>
+app.get("/posts/:postid", verifyToken, (req, res) =>
 {
     const {postid} = req.params;
 
@@ -112,7 +110,7 @@ app.get("/posts/fetch/:postid", verifyToken, (req, res) =>
 });
 
 // Add Post API
-app.post("/posts/add", verifyToken, (req, res) =>
+app.post("/posts", verifyToken, (req, res) =>
 {
     const {message, accountid, latitude, longitude} = req.body;
     
@@ -132,7 +130,7 @@ app.post("/posts/add", verifyToken, (req, res) =>
 });
 
 // Delete Post API
-app.delete("/posts/delete/:postid", verifyToken, (req, res) =>
+app.delete("/posts/:postid", verifyToken, (req, res) =>
 {
     const {postid} = req.params;
 
@@ -150,75 +148,8 @@ app.delete("/posts/delete/:postid", verifyToken, (req, res) =>
     });
 });
 
-
-/* COMMENT ENDPOINTS */
-
-// Fetch Comments API
-app.get("/comments/fetch/:postid", verifyToken, (req, res) =>
-{
-    const {postid} = req.params;
-
-    if(!postid) return res.status(400).json({ error: "Missing postid" });
-
-    // Fetch Comments Query
-    const sqlQuery = `
-    SELECT * FROM Comment WHERE postid = ? AND is_deleted = 0
-    ORDER BY timestamp DESC
-    `;
-
-    // Execute the query
-    db.query(sqlQuery, [postid], (err, results) =>
-    {
-        if(err) return res.status(500).json({ error: err.message });
-
-        res.status(200).json(results);
-    });
-});
-
-// Add Comment API
-app.post("/comments/add", verifyToken, (req, res) =>
-{
-    const {postid, message} = req.body;
-
-    // Make sure all required fields are provided
-    if(!postid || !message) return res.status(400).json({ error: "Missing required fields" });
-
-    // Insert Comment Query
-    const sqlQuery = "INSERT INTO Comment (postid, accountid, message) VALUES (?, ?, ?)";
-
-    // Execute the query
-    db.query(sqlQuery, [postid, message, req.accountid], (err, results) =>
-    {
-        if(err) return res.status(500).json({ error: err.message });
-
-        res.status(201).json({ message: "Comment added", commentid: results.insertId });
-    });
-});
-
-// Delete Comment API
-app.delete("/comments/delete/:commentid", verifyToken, (req, res) =>
-{
-    const {commentid} = req.params;
-    
-    if(!commentid) return res.status(400).json({ error: "Missing commentid" });
-
-    // Delete Comment Query
-    const sqlQuery = "UPDATE Comment SET is_deleted = 1 WHERE commentid = ? AND accountid = ?";
-
-    // Execute the query
-    db.query(sqlQuery, [commentid, req.accountid], (err, results) =>
-    {
-        if(err) return res.status(500).json({ error: err.message });
-
-        res.status(200).json({ message: "Comment deleted" });
-    });
-});
-
-
-/* REACTION ENDPOINTS */
-
 // Post Reaction API
-app.post("/posts/react/:postid", verifyToken, (req, res) =>
+app.post("/posts/:postid/reactions", verifyToken, (req, res) =>
 {
     const {postid} = req.params;
     const {reaction} = req.body;
@@ -262,7 +193,7 @@ app.post("/posts/react/:postid", verifyToken, (req, res) =>
 });
 
 // Get Post Reactions API
-app.get("/posts/get-reactions/:postid", verifyToken, (req, res) =>
+app.get("/posts/:postid/reactions", verifyToken, (req, res) =>
 {
     const {postid} = req.params;
 
@@ -293,8 +224,74 @@ app.get("/posts/get-reactions/:postid", verifyToken, (req, res) =>
 
 });
 
+
+
+
+/* COMMENT ENDPOINTS */
+
+// Fetch Comments API
+app.get("/posts/:postid/comments", verifyToken, (req, res) =>
+{
+    const {postid} = req.params;
+
+    if(!postid) return res.status(400).json({ error: "Missing postid" });
+
+    // Fetch Comments Query
+    const sqlQuery = `
+    SELECT * FROM Comment WHERE postid = ? AND is_deleted = 0
+    ORDER BY timestamp DESC
+    `;
+
+    // Execute the query
+    db.query(sqlQuery, [postid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(200).json(results);
+    });
+});
+
+// Add Comment API
+app.post("/posts/:postid/comments", verifyToken, (req, res) =>
+{
+    const {postid, message} = req.body;
+
+    // Make sure all required fields are provided
+    if(!postid || !message) return res.status(400).json({ error: "Missing required fields" });
+
+    // Insert Comment Query
+    const sqlQuery = "INSERT INTO Comment (postid, accountid, message) VALUES (?, ?, ?)";
+
+    // Execute the query
+    db.query(sqlQuery, [postid, message, req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(201).json({ message: "Comment added", commentid: results.insertId });
+    });
+});
+
+// Delete Comment API
+app.delete("/posts/:postid/comments/:commentid", verifyToken, (req, res) =>
+{
+    const {commentid} = req.params;
+    
+    if(!commentid) return res.status(400).json({ error: "Missing commentid" });
+
+    // Delete Comment Query
+    const sqlQuery = "UPDATE Comment SET is_deleted = 1 WHERE commentid = ? AND accountid = ?";
+
+    // Execute the query
+    db.query(sqlQuery, [commentid, req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(200).json({ message: "Comment deleted" });
+    });
+});
+
 // Comment Reaction API
-app.post("/comments/react/:commentid", verifyToken, (req, res) =>
+app.post("/posts/:postid/comments/:commentid/reactions", verifyToken, (req, res) =>
 {
     const {commentid} = req.params;
     const {reaction} = req.body;
@@ -337,31 +334,18 @@ app.post("/comments/react/:commentid", verifyToken, (req, res) =>
 });
 
 // Get Comment Reactions API
-app.get("/comments/get-reactions/:commentid", verifyToken, (req, res) =>
+app.get("/posts/:postid/comments/:commentid/reactions", verifyToken, (req, res) =>
 {
 
 });
 
-// Get User Reactions API
-app.get("/account/posts/get-reactions", verifyToken, (req, res) =>
-{
-    // Get User Reactions Query
-    const sqlQuery = "SELECT * FROM Reaction WHERE accountid = ?";
 
-    // Execute the query
-    db.query(sqlQuery, [req.accountid], (err, results) =>
-    {
-        if(err) return res.status(500).json({ error: err.message });
-
-        res.status(200).json(results);
-    });
-});
 
 
 /* ACCOUNT ENDPOINTS */
 
 // Create Account API
-app.post("/account/register", async (req, res) =>
+app.post("/users/register", async (req, res) =>
     {
         const {email, password} = req.body;
     
@@ -404,7 +388,7 @@ app.post("/account/register", async (req, res) =>
     });
 
 // Login API
-app.post("/account/login", (req, res) =>
+app.post("/users/login", (req, res) =>
 {
     const {email, password} = req.body;
 
@@ -443,6 +427,27 @@ app.post("/account/login", (req, res) =>
     {
         return res.status(500).json({ error: "Error logging in" });
     }
+});
+
+// Get User Reactions API
+app.get("/users/posts/get-reactions", verifyToken, (req, res) =>
+{
+    // Get User Reactions Query
+    const sqlQuery = "SELECT * FROM Reaction WHERE accountid = ?";
+
+    // Execute the query
+    db.query(sqlQuery, [req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(200).json(results);
+    });
+});
+
+// Token Verification for Auto Login
+app.get("/users/me", verifyToken, (req, res) =>
+{
+    res.json({ message: "Token is valid", accountid: req.accountid, email: req.email });
 });
 
 // Start Server
