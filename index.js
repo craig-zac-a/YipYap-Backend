@@ -157,7 +157,7 @@ app.post("/posts/:postid/reactions", verifyToken, (req, res) =>
     if(postid === undefined || reaction === undefined) return res.status(400).json({ error: "Missing postid or reaction" });
 
     // Check if user has already reacted to the post
-    const checkReactionQuery = "SELECT * FROM Reaction WHERE postid = ? AND accountid = ?";
+    const checkReactionQuery = "SELECT * FROM PostReaction WHERE postid = ? AND accountid = ?";
     db.query(checkReactionQuery, [postid, req.accountid], (err, results) =>
     {
         if(err) return res.status(500).json({ error: err.message });
@@ -169,8 +169,8 @@ app.post("/posts/:postid/reactions", verifyToken, (req, res) =>
 
             console.log("Are we deleting?: ", isDeleting);
 
-            const deleteReactionQuery = "DELETE FROM Reaction WHERE reaction != ? AND postid = ? AND accountid = ?";
-            const updateReactionQuery = "UPDATE Reaction SET reaction = ? WHERE postid = ? AND accountid = ?";
+            const deleteReactionQuery = "DELETE FROM PostReaction WHERE reaction != ? AND postid = ? AND accountid = ?";
+            const updateReactionQuery = "UPDATE PostReaction SET reaction = ? WHERE postid = ? AND accountid = ?";
 
             db.query(isDeleting? deleteReactionQuery : updateReactionQuery, [reaction, postid, req.accountid], (err, results) =>
             {
@@ -181,7 +181,7 @@ app.post("/posts/:postid/reactions", verifyToken, (req, res) =>
         }
         else
         {
-            const insertReactionQuery = "INSERT INTO Reaction (postid, accountid, reaction) VALUES (?, ?, ?)";
+            const insertReactionQuery = "INSERT INTO PostReaction (postid, accountid, reaction) VALUES (?, ?, ?)";
             db.query(insertReactionQuery, [postid, req.accountid, reaction], (err, results) =>
             {
                 if(err) return res.status(500).json({ error: err.message });
@@ -200,8 +200,8 @@ app.get("/posts/:postid/reactions", verifyToken, (req, res) =>
     if(!postid) return res.status(400).json({ error: "Missing postid" });
 
     // Get Post Reactions Query
-    const likeCount = "SELECT COUNT(*) AS count FROM Reaction WHERE postid = ? AND reaction = 1";
-    const dislikeCount = "SELECT COUNT(*) AS count FROM Reaction WHERE postid = ? AND reaction = -1";
+    const likeCount = "SELECT COUNT(*) AS count FROM PostReaction WHERE postid = ? AND reaction = 1";
+    const dislikeCount = "SELECT COUNT(*) AS count FROM PostReaction WHERE postid = ? AND reaction = -1";
     const commentCount = "SELECT COUNT(*) AS count FROM Comment WHERE postid = ?";
 
     // Execute the query
@@ -429,11 +429,26 @@ app.post("/users/login", (req, res) =>
     }
 });
 
-// Get User Reactions API
-app.get("/users/posts/get-reactions", verifyToken, (req, res) =>
+// Get User's Post Reactions API
+app.get("/users/me/posts/reactions", verifyToken, (req, res) =>
 {
     // Get User Reactions Query
-    const sqlQuery = "SELECT * FROM Reaction WHERE accountid = ?";
+    const sqlQuery = "SELECT * FROM PostReaction WHERE accountid = ?";
+
+    // Execute the query
+    db.query(sqlQuery, [req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(200).json(results);
+    });
+});
+
+// Get User's Comment Reactions API
+app.get("/users/me/comments/reactions", verifyToken, (req, res) =>
+{
+    // Get User Reactions Query
+    const sqlQuery = "SELECT * FROM CommentReaction WHERE accountid = ?";
 
     // Execute the query
     db.query(sqlQuery, [req.accountid], (err, results) =>
