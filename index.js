@@ -32,7 +32,10 @@ app.use((req, res, next) => {
     
     // Logs the date and time, request method, URL, and completion time
     res.on("finish", () => {
-        console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - Completed in ${Date.now() - req.requestStartTime}ms`);
+        // Put date into CDT timezone
+        date = new Date();
+        date.setHours(date.getHours() - 5);
+        console.log(`[${date.toISOString()}] ${req.method} ${req.originalUrl} - Completed in ${Date.now() - req.requestStartTime}ms`);
     });
 
     next();
@@ -67,10 +70,11 @@ const verifyToken = (req, res, next) =>
 // Fetch Posts API
 app.get("/posts", verifyToken, (req, res) =>
 {
-    const {latitude, longitude, radius} = req.query;
+    // Set the default radius to 8047 meters, which is approx 5 miles
+    const {latitude, longitude, radius = 8047 } = req.query;
 
     // Make sure all required fields are provided
-    if(!latitude || !longitude || !radius) return res.status(400).json({ error: "Missing parameters" });
+    if(!latitude || !longitude) return res.status(400).json({ error: "Missing location parameters" });
 
     // Fetch Posts Query
     const sqlQuery = `
@@ -83,6 +87,8 @@ app.get("/posts", verifyToken, (req, res) =>
     db.query(sqlQuery, [longitude, latitude, radius], (err, results) =>
     {
         if(err) return res.status(500).json({ error: err.message });
+
+        if(results.length === 0) return res.status(204).json({ message: "No posts found" });
 
         res.status(200).json(results);
     });
@@ -112,11 +118,10 @@ app.get("/posts/:postid", verifyToken, (req, res) =>
 // Add Post API
 app.post("/posts", verifyToken, (req, res) =>
 {
-    const {message, accountid, latitude, longitude} = req.body;
+    const {message, latitude, longitude} = req.body;
     
     // Make sure all required fields are provided
-    if(!latitude || !longitude || !message || !accountid) return res.status(400).json({ error: "Missing required fields" });
-
+    if(!latitude || !longitude || !message) return res.status(416).json({ error: "Missing location or message" });
     // Insert Post Query
     const sqlQuery = "INSERT INTO Post (latitude, longitude, message, accountid) VALUES (?, ?, ?, ?)";
 
@@ -247,6 +252,8 @@ app.get("/posts/:postid/comments", verifyToken, (req, res) =>
     {
         if(err) return res.status(500).json({ error: err.message });
 
+        if(results.length === 0) return res.status(204).json({ message: "No comments found" });
+
         res.status(200).json(results);
     });
 });
@@ -263,7 +270,7 @@ app.post("/posts/:postid/comments", verifyToken, (req, res) =>
     const sqlQuery = "INSERT INTO Comment (postid, accountid, message) VALUES (?, ?, ?)";
 
     // Execute the query
-    db.query(sqlQuery, [postid, message, req.accountid], (err, results) =>
+    db.query(sqlQuery, [postid, req.accountid, message], (err, results) =>
     {
         if(err) return res.status(500).json({ error: err.message });
 
@@ -296,7 +303,7 @@ app.post("/posts/:postid/comments/:commentid/reactions", verifyToken, (req, res)
     const {commentid} = req.params;
     const {reaction} = req.body;
 
-    if(!commentid || !reaction) return res.status(400).json({ error: "Missing commentid or reaction" });
+    if(commentid === undefined || reaction === undefined) return res.status(400).json({ error: "Missing commentid or reaction" });
 
     // Check if user has already reacted to the comment
     const checkReactionQuery = "SELECT * FROM CommentReaction WHERE commentid = ? AND accountid = ?";
@@ -336,7 +343,25 @@ app.post("/posts/:postid/comments/:commentid/reactions", verifyToken, (req, res)
 // Get Comment Reactions API
 app.get("/posts/:postid/comments/:commentid/reactions", verifyToken, (req, res) =>
 {
+    const {commentid} = req.params;
 
+    if(!commentid) return res.status(400).json({ error: "Missing commentid" });
+
+    // Get Post Reactions Query
+    const likeCount = "SELECT COUNT(*) AS count FROM CommentReaction WHERE commentid = ? AND reaction = 1";
+    const dislikeCount = "SELECT COUNT(*) AS count FROM CommentReaction WHERE commentid = ? AND reaction = -1";
+
+    // Execute the query
+    db.query(likeCount, [commentid], (err, likeResults) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        db.query(dislikeCount, [commentid], (err, dislikeResults) =>
+        {
+            if(err) return res.status(500).json({ error: err.message });
+            res.status(200).json({ likes: likeResults[0].count, dislikes: dislikeResults[0].count });
+        });
+    });
 });
 
 
