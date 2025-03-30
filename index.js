@@ -261,7 +261,8 @@ app.get("/posts/:postid/comments", verifyToken, (req, res) =>
 // Add Comment API
 app.post("/posts/:postid/comments", verifyToken, (req, res) =>
 {
-    const {postid, message} = req.body;
+	const {postid} = req.params;
+    const {message} = req.body;
 
     // Make sure all required fields are provided
     if(!postid || !message) return res.status(400).json({ error: "Missing required fields" });
@@ -484,10 +485,43 @@ app.get("/users/me/comments/reactions", verifyToken, (req, res) =>
     });
 });
 
+// Get User's Account Information API
+app.get("/users/me", verifyToken, (req, res) =>
+{
+    const sqlQuery = "SELECT * FROM Account WHERE accountid = ?";
+
+    db.query(sqlQuery, [req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(200).json(results[0]);
+    });
+});
+
 // Token Verification for Auto Login
 app.get("/users/verify", verifyToken, (req, res) =>
 {
     res.json({ message: "Token is valid", accountid: req.accountid, email: req.email });
+});
+
+// Update User's Email API
+app.put("/users/me/email", verifyToken, (req, res) =>
+{
+    const {email} = req.body;
+
+    // Make sure email is provided
+    if(!email) return res.status(400).json({ error: "Missing email" });
+
+    // Update Email Query
+    const sqlQuery = "UPDATE Account SET email = ? WHERE accountid = ?";
+
+    // Execute the query
+    db.query(sqlQuery, [email, req.accountid], (err, results) =>
+    {
+        if(err) return res.status(500).json({ error: err.message });
+
+        res.status(200).json({ message: "Email updated" });
+    });
 });
 
 // Start Server
